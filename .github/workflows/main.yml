@@ -1,0 +1,62 @@
+name: Build Kivy APK
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends \
+            git zip unzip openjdk-17-jdk \
+            python3-pip autoconf libtool pkg-config \
+            zlib1g-dev libncurses-dev libssl-dev \
+            libtinfo6 \
+            python3-setuptools python3-wheel \
+            build-essential ccache \
+            libffi-dev libxml2-dev libxslt1-dev
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip wheel
+        pip install buildozer cython==0.29.33 virtualenv
+
+    - name: Build APK
+      run: |
+        cd projectAN
+        buildozer android clean
+        buildozer -v android release
+        echo "APK files:"
+        ls -lh ./bin/
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: kivy-apk
+        path: ./projectAN/bin/*release.apk
+        retention-days: 7
+
+    - name: Upload build logs
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs
+        path: |
+          ./projectAN/.buildozer/**/*.log
+          ./projectAN/bin/*.log
